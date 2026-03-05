@@ -20,6 +20,13 @@
       loop: "{{ linux_vms }}"
       when: proxmox_linux_bootstrap_iso_name | length > 0
 
+    - name: Attach Windows bootstrap ISO on ide2
+      ansible.builtin.command: >-
+        qm set {{ item }}
+        --ide2 {{ proxmox_storage_iso }}/{{ proxmox_windows_bootstrap_iso_name }},media=cdrom
+      loop: "{{ windows_vms }}"
+      when: proxmox_windows_bootstrap_iso_name | length > 0
+
     - name: Set Linux boot order to scsi0
       ansible.builtin.command: "qm set {{ item }} --boot order=scsi0"
       loop: "{{ linux_vms }}"
@@ -29,4 +36,3 @@
       ansible.builtin.command: "qm set {{ item }} --boot order=sata0"
       loop: "{{ windows_vms }}"
       ignore_errors: true
-

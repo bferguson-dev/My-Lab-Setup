@@ -33,6 +33,7 @@ This repo intentionally contains no personal/sensitive values.
 
 ## Notes
 - `proxmox_install_phase.yml` can optionally recreate originals if `proxmox_recreate_original_vms: true`.
+- Set `proxmox_windows_bootstrap_iso_name` and `proxmox_linux_bootstrap_iso_name` in `group_vars/all.yml` to mount your lab bootstrap media.
 - Windows tasks configure WinRM, disable auto updates, and log to `C:\LabSetup`.
 - Linux tasks ensure SSH + qemu-guest-agent and disable auto update timers.
 - Keep all secrets out of git.
