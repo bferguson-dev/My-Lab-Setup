@@ -36,6 +36,7 @@ This repo intentionally contains no personal/sensitive values.
 - Set `proxmox_bootstrap_iso_name` in `group_vars/all.yml` to mount shared lab bootstrap media for both Windows and Linux.
 - Windows tasks configure WinRM, disable auto updates, and log to `C:\LabSetup`.
 - Linux tasks ensure SSH + qemu-guest-agent, upgrade qemu-guest-agent to latest repo version, and disable auto update timers.
+- Baseline order is enforced as: disable auto updates -> install/update tools -> enable remote access -> firewall adjust -> write verification logs.
 - Keep all secrets out of git.
 
 ## Combined Bootstrap ISO Payload

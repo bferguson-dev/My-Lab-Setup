@@ -1,18 +1,82 @@
 ---
-- name: Ensure qemu-guest-agent present (dnf family)
+- name: Ensure lab log directory exists
+  ansible.builtin.file:
+    path: /var/log/labsetup
+    state: directory
+    mode: "0755"
+
+- name: Disable unattended upgrades first (Debian family)
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - unattended-upgrades
+    - apt-daily.timer
+    - apt-daily-upgrade.timer
+  when: ansible_os_family == 'Debian'
+
+- name: Mask apt daily services first (Debian family)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop:
+    - apt-daily.service
+    - apt-daily-upgrade.service
+  when: ansible_os_family == 'Debian'
+
+- name: Force apt periodic updates off (Debian family)
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Unattended-Upgrade "0";
+  when: ansible_os_family == 'Debian'
+
+- name: Disable dnf timers first (RedHat family)
+  ansible.builtin.service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - dnf-automatic.timer
+    - dnf-makecache.timer
+  when: ansible_os_family == 'RedHat'
+
+- name: Remove dnf-automatic package (RedHat family)
+  ansible.builtin.package:
+    name: dnf-automatic
+    state: absent
+  when: ansible_os_family == 'RedHat'
+
+- name: Install and update qemu-guest-agent (dnf family)
   ansible.builtin.package:
     name: qemu-guest-agent
     state: latest
   when: ansible_pkg_mgr in ['dnf', 'yum']
 
-- name: Ensure qemu-guest-agent present (apt family)
+- name: Install and update qemu-guest-agent (apt family)
   ansible.builtin.apt:
     name: qemu-guest-agent
     state: latest
     update_cache: true
   when: ansible_pkg_mgr == 'apt'
 
-- name: Ensure qemu-guest-agent enabled
+- name: Ensure OpenSSH server package present (dnf family)
+  ansible.builtin.package:
+    name: openssh-server
+    state: present
+  when: ansible_pkg_mgr in ['dnf', 'yum']
+
+- name: Ensure OpenSSH server package present (apt family)
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    update_cache: true
+  when: ansible_pkg_mgr == 'apt'
+
+- name: Ensure qemu-guest-agent enabled and started
   ansible.builtin.service:
     name: qemu-guest-agent
     enabled: true
@@ -32,23 +96,41 @@
     state: started
   when: ansible_os_family == 'RedHat'
 
-- name: Disable unattended upgrades timers (Debian family)
-  ansible.builtin.service:
-    name: "{{ item }}"
-    enabled: false
-    state: stopped
-  loop:
-    - unattended-upgrades
-    - apt-daily.timer
-    - apt-daily-upgrade.timer
+- name: Allow SSH in firewalld when active (RedHat family)
+  ansible.builtin.command: firewall-cmd --permanent --add-service=ssh
+  register: firewalld_allow_ssh
+  changed_when: "'success' in firewalld_allow_ssh.stdout or firewalld_allow_ssh.rc == 0"
+  failed_when: false
+  when: ansible_os_family == 'RedHat'
+
+- name: Reload firewalld when active (RedHat family)
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: false
+  failed_when: false
+  when: ansible_os_family == 'RedHat'
+
+- name: Allow OpenSSH in UFW when active (Debian family)
+  ansible.builtin.shell: |
+    set -e
+    if command -v ufw >/dev/null 2>&1; then
+      ufw status | grep -q "Status: active" && ufw allow OpenSSH || true
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
   when: ansible_os_family == 'Debian'
 
-- name: Disable dnf timers (RedHat family)
-  ansible.builtin.service:
-    name: "{{ item }}"
-    enabled: false
-    state: stopped
-  loop:
-    - dnf-automatic.timer
-    - dnf-makecache.timer
-  when: ansible_os_family == 'RedHat'
+- name: Log Linux baseline verification state
+  ansible.builtin.shell: |
+    set -e
+    {
+      echo "timestamp=$(date -Iseconds)"
+      systemctl is-active qemu-guest-agent
+      systemctl is-enabled qemu-guest-agent
+      systemctl is-active sshd 2>/dev/null || systemctl is-active ssh
+      systemctl is-enabled sshd 2>/dev/null || systemctl is-enabled ssh
+    } > /var/log/labsetup/ansible-linux-baseline-state.txt
+  args:
+    executable: /bin/bash
+  changed_when: false
+

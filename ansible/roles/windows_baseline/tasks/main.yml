@@ -20,17 +20,6 @@
 
       Write-Log 'Starting Windows baseline configuration'
 
-      if ({{ windows_enable_winrm_lab | ternary('$true', '$false') }}) {
-        Write-Log 'Configuring WinRM for lab use'
-        winrm quickconfig -q | Out-Null
-        winrm set winrm/config/service '@{AllowUnencrypted="true"}' | Out-Null
-        winrm set winrm/config/service/auth '@{Basic="true"}' | Out-Null
-        winrm set winrm/config/client '@{TrustedHosts="*"}' | Out-Null
-        Set-Service -Name WinRM -StartupType Automatic
-        Start-Service -Name WinRM
-        netsh advfirewall firewall set rule group="windows remote management" new enable=yes profile=any | Out-Null
-      }
-
       if ({{ windows_disable_updates | ternary('$true', '$false') }}) {
         Write-Log 'Disabling Windows automatic updates'
         New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -Force | Out-Null
@@ -43,6 +32,19 @@
         }
       }
 
+      if ({{ windows_enable_winrm_lab | ternary('$true', '$false') }}) {
+        Write-Log 'Configuring WinRM for lab use'
+        winrm quickconfig -q | Out-Null
+        winrm set winrm/config/service '@{AllowUnencrypted="true"}' | Out-Null
+        winrm set winrm/config/service/auth '@{Basic="true"}' | Out-Null
+        winrm set winrm/config/client '@{TrustedHosts="*"}' | Out-Null
+        Set-Service -Name WinRM -StartupType Automatic
+        Start-Service -Name WinRM
+
+        Write-Log 'Adjusting firewall for WinRM'
+        netsh advfirewall firewall set rule group="windows remote management" new enable=yes profile=any | Out-Null
+      }
+
       Write-Log 'Capturing verification data'
       Get-Service WinRM,wuauserv,bits,UsoSvc |
         Select-Object Name,Status,StartType |
@@ -50,6 +52,8 @@
 
       reg query 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' /v NoAutoUpdate |
         Out-File -FilePath (Join-Path $logDir 'wu-policy.txt') -Encoding utf8
+      winrm enumerate winrm/config/listener |
+        Out-File -FilePath (Join-Path $logDir 'winrm-listener.txt') -Encoding utf8
 
       Write-Log 'Windows baseline configuration complete'
 
