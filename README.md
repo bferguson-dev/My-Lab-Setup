@@ -42,10 +42,10 @@ This repo intentionally contains no personal/sensitive values.
 ## Combined Bootstrap ISO Payload
 - Source payload folder: `ansible/bootstrap_iso/`
 - Includes:
-  - `windows/bootstrap-win.ps1`
-  - `windows/run-windows-bootstrap.cmd`
-  - `linux/bootstrap-linux.sh`
-  - `linux/run-linux-bootstrap.sh`
+  - `bootstra.ps1`
+  - `run_wind.cmd`
+  - `bootstra.sh`
+  - `run_linu.sh`
 
 Build ISO on Proxmox host:
 - Script: `ansible/bootstrap_iso/tools/build_bootstrap_iso_on_pm01.sh`

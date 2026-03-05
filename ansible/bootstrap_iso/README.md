@@ -1,14 +1,18 @@
-Combined Bootstrap ISO Payload
+LAB Bootstrap ISO Payload
 
-Contents:
-- windows/bootstrap-win.ps1
-- windows/run-windows-bootstrap.cmd
-- linux/bootstrap-linux.sh
-- linux/run-linux-bootstrap.sh
+Files expected at ISO root:
+- bootstra.ps1      (Windows bootstrap)
+- run_wind.cmd      (Windows runner)
+- bootstra.sh       (Linux bootstrap)
+- run_linu.sh       (Linux runner)
 
-Purpose:
-- Windows: enable WinRM, disable auto updates, log to C:\LabSetup
-- Linux: install/upgrade qemu-guest-agent, enable SSH, disable auto updates, log to /var/log/labsetup
+Order enforced by scripts:
+1) Disable auto updates
+2) Install/update tools (qemu-guest-agent)
+3) Enable remote access (WinRM/SSH)
+4) Open firewall for remote management
+5) Write verification logs
 
-Build:
-- Use tools/build_bootstrap_iso_on_pm01.sh on pm01.
+Logs:
+- Windows: C:\LabSetup
+- Linux: /var/log/labsetup
