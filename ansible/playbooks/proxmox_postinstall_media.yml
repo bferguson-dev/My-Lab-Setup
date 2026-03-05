@@ -13,19 +13,19 @@
       loop: "{{ windows_vms + linux_vms }}"
       ignore_errors: true
 
-    - name: Attach Linux bootstrap ISO on ide3
+    - name: Attach shared bootstrap ISO on Linux ide3
       ansible.builtin.command: >-
         qm set {{ item }}
-        --ide3 {{ proxmox_storage_iso }}/{{ proxmox_linux_bootstrap_iso_name }},media=cdrom
+        --ide3 {{ proxmox_storage_iso }}/{{ proxmox_bootstrap_iso_name }},media=cdrom
       loop: "{{ linux_vms }}"
-      when: proxmox_linux_bootstrap_iso_name | length > 0
+      when: proxmox_bootstrap_iso_name | length > 0
 
-    - name: Attach Windows bootstrap ISO on ide2
+    - name: Attach shared bootstrap ISO on Windows ide2
       ansible.builtin.command: >-
         qm set {{ item }}
-        --ide2 {{ proxmox_storage_iso }}/{{ proxmox_windows_bootstrap_iso_name }},media=cdrom
+        --ide2 {{ proxmox_storage_iso }}/{{ proxmox_bootstrap_iso_name }},media=cdrom
       loop: "{{ windows_vms }}"
-      when: proxmox_windows_bootstrap_iso_name | length > 0
+      when: proxmox_bootstrap_iso_name | length > 0
 
     - name: Set Linux boot order to scsi0
       ansible.builtin.command: "qm set {{ item }} --boot order=scsi0"

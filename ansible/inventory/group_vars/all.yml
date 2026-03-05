@@ -43,8 +43,7 @@ proxmox_linux_clones:
 proxmox_recreate_original_vms: false
 proxmox_attach_windows_driver_iso: false
 proxmox_windows_driver_iso_name: "REDACTED_WINDOWS_DRIVER_ISO"
-proxmox_linux_bootstrap_iso_name: "REDACTED_LINUX_BOOTSTRAP_ISO"
-proxmox_windows_bootstrap_iso_name: "REDACTED_WINDOWS_BOOTSTRAP_ISO"
+proxmox_bootstrap_iso_name: "REDACTED_BOOTSTRAP_ISO"
 
 # Original VM definitions for OS install phase.
 # Fill ISO names and sizes to match your environment.
