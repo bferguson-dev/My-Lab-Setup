@@ -2,13 +2,13 @@
 - name: Ensure qemu-guest-agent present (dnf family)
   ansible.builtin.package:
     name: qemu-guest-agent
-    state: present
+    state: latest
   when: ansible_pkg_mgr in ['dnf', 'yum']
 
 - name: Ensure qemu-guest-agent present (apt family)
   ansible.builtin.apt:
     name: qemu-guest-agent
-    state: present
+    state: latest
     update_cache: true
   when: ansible_pkg_mgr == 'apt'
 

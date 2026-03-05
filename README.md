@@ -35,5 +35,21 @@ This repo intentionally contains no personal/sensitive values.
 - `proxmox_install_phase.yml` can optionally recreate originals if `proxmox_recreate_original_vms: true`.
 - Set `proxmox_bootstrap_iso_name` in `group_vars/all.yml` to mount shared lab bootstrap media for both Windows and Linux.
 - Windows tasks configure WinRM, disable auto updates, and log to `C:\LabSetup`.
-- Linux tasks ensure SSH + qemu-guest-agent and disable auto update timers.
+- Linux tasks ensure SSH + qemu-guest-agent, upgrade qemu-guest-agent to latest repo version, and disable auto update timers.
 - Keep all secrets out of git.
+
+## Combined Bootstrap ISO Payload
+- Source payload folder: `ansible/bootstrap_iso/`
+- Includes:
+  - `windows/bootstrap-win.ps1`
+  - `windows/run-windows-bootstrap.cmd`
+  - `linux/bootstrap-linux.sh`
+  - `linux/run-linux-bootstrap.sh`
+
+Build ISO on Proxmox host:
+- Script: `ansible/bootstrap_iso/tools/build_bootstrap_iso_on_pm01.sh`
+- Output ISO default: `/var/lib/vz/template/iso/LAB_BOOTSTRAP.iso`
+
+Notes:
+- `qemu-guest-agent` package binaries are **not** embedded in ISO (distro-specific and quickly stale).
+- Bootstrap + Ansible both perform a post-install repo-based qemu-guest-agent upgrade to keep versions current.
