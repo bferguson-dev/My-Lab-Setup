@@ -1,0 +1,15 @@
+---
+# Global placeholders only. Fill locally before execution.
+lab_snapshot_windows: "vuln-base-YYYY-MM-DD"
+lab_snapshot_linux: "linux-vuln-base-YYYY-MM-DD"
+
+proxmox_node_name: "REDACTED_NODE_NAME"
+proxmox_storage_vm: "REDACTED_VM_STORAGE"
+proxmox_storage_iso: "REDACTED_ISO_STORAGE"
+
+linux_admin_user: "REDACTED_LINUX_ADMIN_USER"
+windows_admin_user: "REDACTED_WINDOWS_ADMIN_USER"
+
+# Keep secrets out of git.
+linux_admin_password: "REDACTED_USE_VAULT"
+windows_admin_password: "REDACTED_USE_VAULT"

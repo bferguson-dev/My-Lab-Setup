@@ -1,0 +1,4 @@
+---
+- name: Common placeholder task
+  ansible.builtin.debug:
+    msg: "Common role executed on {{ inventory_hostname }}"

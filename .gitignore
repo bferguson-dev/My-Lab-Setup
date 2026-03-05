@@ -1,0 +1,11 @@
+# Ignore everything by default to prevent accidental leakage
+*
+
+# Allow git control files
+!.gitignore
+!.gitattributes
+
+# Allow sanitized Ansible repo content only
+!ansible/
+!ansible/**
+!README.md

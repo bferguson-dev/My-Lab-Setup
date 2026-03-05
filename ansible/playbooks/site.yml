@@ -1,0 +1,22 @@
+---
+- name: Proxmox lab baseline orchestration
+  hosts: all
+  gather_facts: false
+
+- name: Linux baseline tasks
+  hosts: linux_originals
+  become: true
+  roles:
+    - role: linux_baseline
+
+- name: Windows baseline tasks
+  hosts: windows_originals
+  gather_facts: false
+  roles:
+    - role: windows_baseline
+
+- name: Common verification hooks
+  hosts: all
+  become: false
+  roles:
+    - role: common

@@ -1,0 +1,6 @@
+---
+- name: Placeholder for Windows baseline tasks
+  ansible.builtin.debug:
+    msg: >-
+      Add WinRM/update policy hardening tasks here using sanitized vars.
+      Keep credentials in vault, never plain text.
