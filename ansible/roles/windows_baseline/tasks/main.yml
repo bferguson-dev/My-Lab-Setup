@@ -1,6 +1,75 @@
 ---
-- name: Placeholder for Windows baseline tasks
-  ansible.builtin.debug:
-    msg: >-
-      Add WinRM/update policy hardening tasks here using sanitized vars.
-      Keep credentials in vault, never plain text.
+- name: Ensure lab setup directory exists
+  ansible.windows.win_file:
+    path: '{{ windows_lab_log_dir }}'
+    state: directory
+
+- name: Apply Windows baseline configuration
+  ansible.windows.win_powershell:
+    script: |
+      $ErrorActionPreference = 'Stop'
+      $logDir = '{{ windows_lab_log_dir }}'
+      New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+      $logFile = Join-Path $logDir 'ansible-windows-baseline.log'
+
+      function Write-Log {
+        param([string]$Message)
+        $line = "[{0}] {1}" -f (Get-Date -Format s), $Message
+        $line | Out-File -FilePath $logFile -Append -Encoding utf8
+      }
+
+      Write-Log 'Starting Windows baseline configuration'
+
+      if ({{ windows_enable_winrm_lab | ternary('$true', '$false') }}) {
+        Write-Log 'Configuring WinRM for lab use'
+        winrm quickconfig -q | Out-Null
+        winrm set winrm/config/service '@{AllowUnencrypted="true"}' | Out-Null
+        winrm set winrm/config/service/auth '@{Basic="true"}' | Out-Null
+        winrm set winrm/config/client '@{TrustedHosts="*"}' | Out-Null
+        Set-Service -Name WinRM -StartupType Automatic
+        Start-Service -Name WinRM
+        netsh advfirewall firewall set rule group="windows remote management" new enable=yes profile=any | Out-Null
+      }
+
+      if ({{ windows_disable_updates | ternary('$true', '$false') }}) {
+        Write-Log 'Disabling Windows automatic updates'
+        New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -Force | Out-Null
+        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -Name NoAutoUpdate -Type DWord -Value 1
+        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -Name AUOptions -Type DWord -Value 1
+
+        foreach ($svc in 'wuauserv','bits','dosvc','UsoSvc') {
+          try { Stop-Service $svc -Force -ErrorAction SilentlyContinue } catch {}
+          try { Set-Service $svc -StartupType Disabled -ErrorAction SilentlyContinue } catch {}
+        }
+      }
+
+      Write-Log 'Capturing verification data'
+      Get-Service WinRM,wuauserv,bits,UsoSvc |
+        Select-Object Name,Status,StartType |
+        Out-File -FilePath (Join-Path $logDir 'service-state.txt') -Encoding utf8
+
+      reg query 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' /v NoAutoUpdate |
+        Out-File -FilePath (Join-Path $logDir 'wu-policy.txt') -Encoding utf8
+
+      Write-Log 'Windows baseline configuration complete'
+
+- name: Verify WinRM service is running
+  ansible.windows.win_service:
+    name: WinRM
+    state: started
+  when: windows_enable_winrm_lab
+
+- name: Verify updates policy key is present
+  ansible.windows.win_reg_stat:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU
+    name: NoAutoUpdate
+  register: win_no_auto_update
+  when: windows_disable_updates
+
+- name: Assert updates disabled policy set to 1
+  ansible.builtin.assert:
+    that:
+      - win_no_auto_update.exists
+      - win_no_auto_update.value == 1
+    fail_msg: Windows update disable policy was not set correctly.
+  when: windows_disable_updates

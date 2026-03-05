@@ -13,3 +13,27 @@ windows_admin_user: "REDACTED_WINDOWS_ADMIN_USER"
 # Keep secrets out of git.
 linux_admin_password: "REDACTED_USE_VAULT"
 windows_admin_password: "REDACTED_USE_VAULT"
+
+# Windows baseline behavior
+windows_lab_log_dir: "C:\\LabSetup"
+windows_enable_winrm_lab: true
+windows_disable_updates: true
+
+# Proxmox lifecycle defaults (safe placeholders)
+proxmox_shutdown_timeout: 180
+proxmox_windows_original_vms: [200, 201, 202, 203, 204, 205]
+proxmox_linux_original_vms: [206, 207, 208, 209]
+
+proxmox_windows_clones:
+  - { source: 200, clone_id: 300, name: "win10-vuln" }
+  - { source: 201, clone_id: 301, name: "win11-vuln" }
+  - { source: 202, clone_id: 302, name: "server2016-vuln" }
+  - { source: 203, clone_id: 303, name: "server2019-vuln" }
+  - { source: 204, clone_id: 304, name: "server2022-vuln" }
+  - { source: 205, clone_id: 305, name: "server2025-vuln" }
+
+proxmox_linux_clones:
+  - { source: 206, clone_id: 306, name: "almalinux-vuln" }
+  - { source: 207, clone_id: 307, name: "fedora-vuln" }
+  - { source: 208, clone_id: 308, name: "ubuntu-desktop-vuln" }
+  - { source: 209, clone_id: 309, name: "ubuntu-server-vuln" }

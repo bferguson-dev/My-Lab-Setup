@@ -5,6 +5,7 @@
 
 - name: Linux baseline tasks
   hosts: linux_originals
+  gather_facts: true
   become: true
   roles:
     - role: linux_baseline

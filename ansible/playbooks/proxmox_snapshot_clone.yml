@@ -1,0 +1,55 @@
+---
+- name: Snapshot and clone lifecycle from Proxmox
+  hosts: proxmox
+  gather_facts: false
+
+  tasks:
+    - name: Gracefully shutdown Windows originals
+      ansible.builtin.command: "qm shutdown {{ item }} --timeout {{ proxmox_shutdown_timeout }}"
+      loop: "{{ proxmox_windows_original_vms }}"
+      ignore_errors: true
+
+    - name: Gracefully shutdown Linux originals
+      ansible.builtin.command: "qm shutdown {{ item }} --timeout {{ proxmox_shutdown_timeout }}"
+      loop: "{{ proxmox_linux_original_vms }}"
+      ignore_errors: true
+
+    - name: Ensure Windows originals are stopped
+      ansible.builtin.command: "qm stop {{ item }}"
+      loop: "{{ proxmox_windows_original_vms }}"
+      ignore_errors: true
+
+    - name: Ensure Linux originals are stopped
+      ansible.builtin.command: "qm stop {{ item }}"
+      loop: "{{ proxmox_linux_original_vms }}"
+      ignore_errors: true
+
+    - name: Snapshot Windows originals
+      ansible.builtin.command: >-
+        qm snapshot {{ item }} {{ lab_snapshot_windows }}
+        --description "Windows vulnerable baseline"
+      loop: "{{ proxmox_windows_original_vms }}"
+
+    - name: Snapshot Linux originals
+      ansible.builtin.command: >-
+        qm snapshot {{ item }} {{ lab_snapshot_linux }}
+        --description "Linux vulnerable baseline"
+      loop: "{{ proxmox_linux_original_vms }}"
+
+    - name: Create Windows full clones
+      ansible.builtin.command: >-
+        qm clone {{ item.source }} {{ item.clone_id }}
+        --name {{ item.name }}
+        --full 1
+        --snapname {{ lab_snapshot_windows }}
+        --storage {{ proxmox_storage_vm }}
+      loop: "{{ proxmox_windows_clones }}"
+
+    - name: Create Linux full clones
+      ansible.builtin.command: >-
+        qm clone {{ item.source }} {{ item.clone_id }}
+        --name {{ item.name }}
+        --full 1
+        --snapname {{ lab_snapshot_linux }}
+        --storage {{ proxmox_storage_vm }}
+      loop: "{{ proxmox_linux_clones }}"

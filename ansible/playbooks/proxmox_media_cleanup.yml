@@ -1,0 +1,28 @@
+---
+- name: Detach ISO media and enforce disk boot
+  hosts: proxmox
+  gather_facts: false
+
+  vars:
+    target_vms: "{{ proxmox_windows_original_vms + proxmox_linux_original_vms }}"
+
+  tasks:
+    - name: Remove ide2 cdrom if present
+      ansible.builtin.command: "qm set {{ item }} --delete ide2"
+      loop: "{{ target_vms }}"
+      ignore_errors: true
+
+    - name: Remove ide3 cdrom if present
+      ansible.builtin.command: "qm set {{ item }} --delete ide3"
+      loop: "{{ target_vms }}"
+      ignore_errors: true
+
+    - name: Set Linux originals to boot from scsi0
+      ansible.builtin.command: "qm set {{ item }} --boot order=scsi0"
+      loop: "{{ proxmox_linux_original_vms }}"
+      ignore_errors: true
+
+    - name: Set Windows originals to boot from sata0
+      ansible.builtin.command: "qm set {{ item }} --boot order=sata0"
+      loop: "{{ proxmox_windows_original_vms }}"
+      ignore_errors: true
