@@ -1,0 +1,65 @@
+---
+- name: Provision originals and start OS installers from Proxmox
+  hosts: proxmox
+  gather_facts: false
+
+  tasks:
+    - name: Stop originals before optional recreate
+      ansible.builtin.command: "qm stop {{ item.id }}"
+      loop: "{{ proxmox_original_vm_definitions }}"
+      ignore_errors: true
+      when: proxmox_recreate_original_vms
+
+    - name: Destroy originals before optional recreate
+      ansible.builtin.command: "qm destroy {{ item.id }} --destroy-unreferenced-disks 1 --purge 1"
+      loop: "{{ proxmox_original_vm_definitions }}"
+      ignore_errors: true
+      when: proxmox_recreate_original_vms
+
+    - name: Ensure originals exist with base config
+      ansible.builtin.command: >-
+        qm create {{ item.id }}
+        --name {{ item.name }}
+        --machine q35
+        --bios ovmf
+        --cpu host
+        --cores {{ item.cores }}
+        --memory {{ item.memory }}
+        --agent enabled=1
+        --scsihw virtio-scsi-single
+        --efidisk0 {{ proxmox_storage_vm }}:1,pre-enrolled-keys=1
+        --net0 virtio,bridge={{ proxmox_bridge }}
+      loop: "{{ proxmox_original_vm_definitions }}"
+      ignore_errors: true
+
+    - name: Ensure primary disk exists
+      ansible.builtin.command: >-
+        qm set {{ item.id }}
+        --{{ item.disk_bus }} {{ proxmox_storage_vm }}:{{ item.disk_size_gb }}
+      loop: "{{ proxmox_original_vm_definitions }}"
+      ignore_errors: true
+
+    - name: Attach OS installer ISO on ide2
+      ansible.builtin.command: >-
+        qm set {{ item.id }}
+        --ide2 {{ proxmox_storage_iso }}/{{ item.install_iso }},media=cdrom
+      loop: "{{ proxmox_original_vm_definitions }}"
+
+    - name: Attach Windows driver ISO on ide3 (optional)
+      ansible.builtin.command: >-
+        qm set {{ item.id }}
+        --ide3 {{ proxmox_storage_iso }}/{{ proxmox_windows_driver_iso_name }},media=cdrom
+      loop: "{{ proxmox_original_vm_definitions }}"
+      when:
+        - proxmox_attach_windows_driver_iso
+        - item.os_family == "windows"
+
+    - name: Set boot order to installer first
+      ansible.builtin.command: "qm set {{ item.id }} --boot order=ide2"
+      loop: "{{ proxmox_original_vm_definitions }}"
+
+    - name: Start originals for OS installation
+      ansible.builtin.command: "qm start {{ item.id }}"
+      loop: "{{ proxmox_original_vm_definitions }}"
+      ignore_errors: true
+

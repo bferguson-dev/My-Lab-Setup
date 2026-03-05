@@ -6,6 +6,7 @@ lab_snapshot_linux: "linux-vuln-base-YYYY-MM-DD"
 proxmox_node_name: "REDACTED_NODE_NAME"
 proxmox_storage_vm: "REDACTED_VM_STORAGE"
 proxmox_storage_iso: "REDACTED_ISO_STORAGE"
+proxmox_bridge: "REDACTED_BRIDGE"
 
 linux_admin_user: "REDACTED_LINUX_ADMIN_USER"
 windows_admin_user: "REDACTED_WINDOWS_ADMIN_USER"
@@ -37,3 +38,93 @@ proxmox_linux_clones:
   - { source: 207, clone_id: 307, name: "fedora-vuln" }
   - { source: 208, clone_id: 308, name: "ubuntu-desktop-vuln" }
   - { source: 209, clone_id: 309, name: "ubuntu-server-vuln" }
+
+# Install phase defaults
+proxmox_recreate_original_vms: false
+proxmox_attach_windows_driver_iso: false
+proxmox_windows_driver_iso_name: "REDACTED_WINDOWS_DRIVER_ISO"
+proxmox_linux_bootstrap_iso_name: "REDACTED_LINUX_BOOTSTRAP_ISO"
+
+# Original VM definitions for OS install phase.
+# Fill ISO names and sizes to match your environment.
+proxmox_original_vm_definitions:
+  - id: 200
+    name: "win10"
+    os_family: "windows"
+    memory: 8192
+    cores: 4
+    disk_bus: "sata0"
+    disk_size_gb: 64
+    install_iso: "REDACTED_WIN10_ISO"
+  - id: 201
+    name: "win11"
+    os_family: "windows"
+    memory: 8192
+    cores: 4
+    disk_bus: "sata0"
+    disk_size_gb: 64
+    install_iso: "REDACTED_WIN11_ISO"
+  - id: 202
+    name: "server2016"
+    os_family: "windows"
+    memory: 8192
+    cores: 4
+    disk_bus: "sata0"
+    disk_size_gb: 64
+    install_iso: "REDACTED_SERVER2016_ISO"
+  - id: 203
+    name: "server2019"
+    os_family: "windows"
+    memory: 8192
+    cores: 4
+    disk_bus: "sata0"
+    disk_size_gb: 64
+    install_iso: "REDACTED_SERVER2019_ISO"
+  - id: 204
+    name: "server2022"
+    os_family: "windows"
+    memory: 8192
+    cores: 4
+    disk_bus: "sata0"
+    disk_size_gb: 64
+    install_iso: "REDACTED_SERVER2022_ISO"
+  - id: 205
+    name: "server2025"
+    os_family: "windows"
+    memory: 8192
+    cores: 4
+    disk_bus: "sata0"
+    disk_size_gb: 64
+    install_iso: "REDACTED_SERVER2025_ISO"
+  - id: 206
+    name: "almalinux"
+    os_family: "linux"
+    memory: 4096
+    cores: 2
+    disk_bus: "scsi0"
+    disk_size_gb: 32
+    install_iso: "REDACTED_ALMA_ISO"
+  - id: 207
+    name: "fedora"
+    os_family: "linux"
+    memory: 4096
+    cores: 2
+    disk_bus: "scsi0"
+    disk_size_gb: 40
+    install_iso: "REDACTED_FEDORA_ISO"
+  - id: 208
+    name: "ubuntu-desktop"
+    os_family: "linux"
+    memory: 8192
+    cores: 4
+    disk_bus: "scsi0"
+    disk_size_gb: 40
+    install_iso: "REDACTED_UBUNTU_DESKTOP_ISO"
+  - id: 209
+    name: "ubuntu-server"
+    os_family: "linux"
+    memory: 4096
+    cores: 2
+    disk_bus: "scsi0"
+    disk_size_gb: 32
+    install_iso: "REDACTED_UBUNTU_SERVER_ISO"
