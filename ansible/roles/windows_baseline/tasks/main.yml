@@ -35,9 +35,8 @@
       if ({{ windows_enable_winrm_lab | ternary('$true', '$false') }}) {
         Write-Log 'Configuring WinRM for lab use'
         winrm quickconfig -q | Out-Null
-        winrm set winrm/config/service '@{AllowUnencrypted="true"}' | Out-Null
-        winrm set winrm/config/service/auth '@{Basic="true"}' | Out-Null
-        winrm set winrm/config/client '@{TrustedHosts="*"}' | Out-Null
+        winrm set winrm/config/service '@{AllowUnencrypted="false"}' | Out-Null
+        winrm set winrm/config/service/auth '@{Basic="false"}' | Out-Null
         Set-Service -Name WinRM -StartupType Automatic
         Start-Service -Name WinRM
 
@@ -67,13 +66,13 @@
   ansible.windows.win_reg_stat:
     path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU
     name: NoAutoUpdate
-  register: win_no_auto_update
+  register: windows_baseline_no_auto_update
   when: windows_disable_updates
 
 - name: Assert updates disabled policy set to 1
   ansible.builtin.assert:
     that:
-      - win_no_auto_update.exists
-      - win_no_auto_update.value == 1
+      - windows_baseline_no_auto_update.exists
+      - windows_baseline_no_auto_update.value == 1
     fail_msg: Windows update disable policy was not set correctly.
   when: windows_disable_updates

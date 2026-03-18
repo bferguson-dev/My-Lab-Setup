@@ -8,21 +8,57 @@
 
   tasks:
     - name: Remove ide2 cdrom if present
-      ansible.builtin.command: "qm set {{ item }} --delete ide2"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if ! qm config {{ item }} | grep -q '^ide2:'; then
+          exit 0
+        fi
+        qm set {{ item }} --delete ide2
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ target_vms }}"
-      ignore_errors: true
+      register: proxmox_media_cleanup_ide2
+      changed_when: "'changed' in proxmox_media_cleanup_ide2.stdout"
 
     - name: Remove ide3 cdrom if present
-      ansible.builtin.command: "qm set {{ item }} --delete ide3"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if ! qm config {{ item }} | grep -q '^ide3:'; then
+          exit 0
+        fi
+        qm set {{ item }} --delete ide3
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ target_vms }}"
-      ignore_errors: true
+      register: proxmox_media_cleanup_ide3
+      changed_when: "'changed' in proxmox_media_cleanup_ide3.stdout"
 
     - name: Set Linux originals to boot from scsi0
-      ansible.builtin.command: "qm set {{ item }} --boot order=scsi0"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item }} | grep -q '^boot: order=scsi0$'; then
+          exit 0
+        fi
+        qm set {{ item }} --boot order=scsi0
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_linux_original_vms }}"
-      ignore_errors: true
+      register: proxmox_media_cleanup_linux_boot
+      changed_when: "'changed' in proxmox_media_cleanup_linux_boot.stdout"
 
     - name: Set Windows originals to boot from sata0
-      ansible.builtin.command: "qm set {{ item }} --boot order=sata0"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item }} | grep -q '^boot: order=sata0$'; then
+          exit 0
+        fi
+        qm set {{ item }} --boot order=sata0
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_windows_original_vms }}"
-      ignore_errors: true
+      register: proxmox_media_cleanup_windows_boot
+      changed_when: "'changed' in proxmox_media_cleanup_windows_boot.stdout"

@@ -22,9 +22,8 @@ foreach ($svc in 'wuauserv','bits','dosvc','UsoSvc') {
 
 Write-Log 'Configuring WinRM for lab use'
 winrm quickconfig -q | Out-Null
-winrm set winrm/config/service '@{AllowUnencrypted="true"}' | Out-Null
-winrm set winrm/config/service/auth '@{Basic="true"}' | Out-Null
-winrm set winrm/config/client '@{TrustedHosts="*"}' | Out-Null
+winrm set winrm/config/service '@{AllowUnencrypted="false"}' | Out-Null
+winrm set winrm/config/service/auth '@{Basic="false"}' | Out-Null
 Set-Service -Name WinRM -StartupType Automatic
 Start-Service -Name WinRM
 

@@ -1,17 +1,247 @@
 ---
+- name: Resolve Linux original IPs from Proxmox guest agent
+  hosts: localhost
+  gather_facts: false
+  vars:
+    proxmox_delegate_host: "{{ groups['proxmox'] | first }}"
+    linux_runtime_targets: "{{ groups['linux_originals'] | default([]) }}"
+  tasks:
+    - name: Assert required inventory groups exist for Linux baseline
+      ansible.builtin.assert:
+        that:
+          - groups['proxmox'] is defined
+          - groups['proxmox'] | length > 0
+          - groups['linux_originals'] is defined
+          - groups['linux_originals'] | length > 0
+        fail_msg: Missing proxmox or linux_originals inventory groups.
+
+    - name: Wait for Linux guest agent responsiveness
+      ansible.builtin.command:
+        argv:
+          - qm
+          - agent
+          - "{{ hostvars[item].proxmox_vmid | string }}"
+          - ping
+      delegate_to: "{{ proxmox_delegate_host }}"
+      become: false
+      loop: "{{ linux_runtime_targets }}"
+      loop_control:
+        label: "{{ item }}"
+      register: linux_runtime_qga_ping
+      retries: 60
+      delay: 10
+      until: linux_runtime_qga_ping is succeeded
+      changed_when: false
+
+    - name: Resolve current Linux guest IPv4 addresses
+      ansible.builtin.shell: |
+        set -euo pipefail
+        qm guest cmd {{ hostvars[item].proxmox_vmid }} network-get-interfaces | python3 -c '
+        import ipaddress
+        import json
+        import sys
+
+        data = json.load(sys.stdin)
+        candidates = []
+        for iface in data:
+            for addr in iface.get("ip-addresses", []):
+                ip = addr.get("ip-address")
+                if addr.get("ip-address-type") != "ipv4" or not ip:
+                    continue
+                if ip.startswith("127."):
+                    continue
+                try:
+                    parsed = ipaddress.ip_address(ip)
+                except ValueError:
+                    continue
+                candidates.append((0 if parsed.is_private else 1, ip))
+
+        if not candidates:
+            raise SystemExit("no usable IPv4 address returned by guest agent")
+
+        candidates.sort()
+        print(candidates[0][1])
+        '
+      args:
+        executable: /bin/bash
+      delegate_to: "{{ proxmox_delegate_host }}"
+      become: false
+      loop: "{{ linux_runtime_targets }}"
+      loop_control:
+        label: "{{ item }}"
+      register: linux_runtime_ip_resolution
+      changed_when: false
+
+    - name: Inject resolved Linux guests into runtime inventory
+      ansible.builtin.add_host:
+        name: "{{ item.item }}"
+        groups: linux_originals_runtime
+        ansible_host: "{{ item.stdout | trim }}"
+        proxmox_vmid: "{{ hostvars[item.item].proxmox_vmid }}"
+        ansible_user: "{{ hostvars[item.item].ansible_user }}"
+        ansible_password: "{{ linux_admin_password | default(omit) }}"
+        ansible_become: "{{ hostvars[item.item].ansible_become | default(true) }}"
+        ansible_become_method: "{{ hostvars[item.item].ansible_become_method | default('sudo') }}"
+        ansible_become_password: "{{ linux_admin_password | default(omit) }}"
+      loop: "{{ linux_runtime_ip_resolution.results }}"
+      loop_control:
+        label: "{{ item.item }} -> {{ item.stdout | trim }}"
+
+- name: Resolve Windows original IPs from Proxmox guest agent
+  hosts: localhost
+  gather_facts: false
+  vars:
+    proxmox_delegate_host: "{{ groups['proxmox'] | first }}"
+    windows_runtime_targets: "{{ groups['windows_originals'] | default([]) }}"
+  tasks:
+    - name: Assert required inventory groups exist for Windows baseline
+      ansible.builtin.assert:
+        that:
+          - groups['proxmox'] is defined
+          - groups['proxmox'] | length > 0
+          - groups['windows_originals'] is defined
+          - groups['windows_originals'] | length > 0
+        fail_msg: Missing proxmox or windows_originals inventory groups.
+
+    - name: Wait for Windows guest agent responsiveness
+      ansible.builtin.command:
+        argv:
+          - qm
+          - agent
+          - "{{ hostvars[item].proxmox_vmid | string }}"
+          - ping
+      delegate_to: "{{ proxmox_delegate_host }}"
+      become: false
+      loop: "{{ windows_runtime_targets }}"
+      loop_control:
+        label: "{{ item }}"
+      register: windows_runtime_qga_ping
+      retries: 60
+      delay: 10
+      until: windows_runtime_qga_ping is succeeded
+      changed_when: false
+
+    - name: Bootstrap WinRM for Windows baseline via guest agent
+      ansible.builtin.command:
+        argv:
+          - qm
+          - guest
+          - exec
+          - "{{ hostvars[item].proxmox_vmid | string }}"
+          - --timeout
+          - "600"
+          - --synchronous
+          - "1"
+          - --
+          - powershell.exe
+          - -NoProfile
+          - -Command
+          - |
+            $ErrorActionPreference = 'Stop'
+            winrm quickconfig -q | Out-Null
+            winrm set winrm/config/service '@{AllowUnencrypted="false"}' | Out-Null
+            winrm set winrm/config/service/auth '@{Basic="false"}' | Out-Null
+            Set-Service -Name WinRM -StartupType Automatic
+            Start-Service -Name WinRM
+            netsh advfirewall firewall set rule group="windows remote management" new enable=yes profile=any | Out-Null
+            netsh advfirewall firewall add rule name="Codex WinRM 5985" dir=in action=allow protocol=TCP localport=5985 profile=any | Out-Null
+            Test-NetConnection -ComputerName localhost -Port 5985 | Select-Object -ExpandProperty TcpTestSucceeded
+      delegate_to: "{{ proxmox_delegate_host }}"
+      become: false
+      loop: "{{ windows_runtime_targets }}"
+      loop_control:
+        label: "{{ item }}"
+      register: windows_runtime_winrm_bootstrap
+      changed_when: false
+
+    - name: Assert WinRM bootstrap succeeded for Windows baseline
+      ansible.builtin.assert:
+        that:
+          - (item.stdout | from_json).exitcode == 0
+          - ((item.stdout | from_json)['out-data'] | trim | lower).endswith('true')
+        fail_msg: "Failed to bootstrap WinRM on {{ item.item }}."
+      loop: "{{ windows_runtime_winrm_bootstrap.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Resolve current Windows guest IPv4 addresses
+      ansible.builtin.shell: |
+        set -euo pipefail
+        qm guest cmd {{ hostvars[item].proxmox_vmid }} network-get-interfaces | python3 -c '
+        import ipaddress
+        import json
+        import sys
+
+        data = json.load(sys.stdin)
+        candidates = []
+        for iface in data:
+            for addr in iface.get("ip-addresses", []):
+                ip = addr.get("ip-address")
+                if addr.get("ip-address-type") != "ipv4" or not ip:
+                    continue
+                if ip.startswith("127."):
+                    continue
+                try:
+                    parsed = ipaddress.ip_address(ip)
+                except ValueError:
+                    continue
+                candidates.append((0 if parsed.is_private else 1, ip))
+
+        if not candidates:
+            raise SystemExit("no usable IPv4 address returned by guest agent")
+
+        candidates.sort()
+        print(candidates[0][1])
+        '
+      args:
+        executable: /bin/bash
+      delegate_to: "{{ proxmox_delegate_host }}"
+      become: false
+      loop: "{{ windows_runtime_targets }}"
+      loop_control:
+        label: "{{ item }}"
+      register: windows_runtime_ip_resolution
+      changed_when: false
+
+    - name: Inject resolved Windows guests into runtime inventory
+      ansible.builtin.add_host:
+        name: "{{ item.item }}"
+        groups: windows_originals_runtime
+        ansible_host: "{{ item.stdout | trim }}"
+        proxmox_vmid: "{{ hostvars[item.item].proxmox_vmid }}"
+        ansible_user: "{{ hostvars[item.item].ansible_user }}"
+        ansible_password: "{{ windows_admin_password }}"
+        ansible_connection: "{{ hostvars[item.item].ansible_connection | default('winrm') }}"
+        ansible_winrm_transport: "{{ hostvars[item.item].ansible_winrm_transport | default('ntlm') }}"
+        ansible_winrm_server_cert_validation: "{{ hostvars[item.item].ansible_winrm_server_cert_validation | default('ignore') }}"
+        ansible_port: "{{ hostvars[item.item].ansible_port | default(5985) }}"
+      loop: "{{ windows_runtime_ip_resolution.results }}"
+      loop_control:
+        label: "{{ item.item }} -> {{ item.stdout | trim }}"
+
+    - name: Wait for WinRM on resolved Windows IPs
+      ansible.builtin.wait_for:
+        host: "{{ item.stdout | trim }}"
+        port: 5985
+        timeout: 300
+        sleep: 5
+      loop: "{{ windows_runtime_ip_resolution.results }}"
+      loop_control:
+        label: "{{ item.item }} -> {{ item.stdout | trim }}"
+
 - name: Proxmox lab baseline orchestration
   hosts: all
   gather_facts: false
 
 - name: Linux baseline tasks
-  hosts: linux_originals
+  hosts: linux_originals_runtime
   gather_facts: true
   become: true
   roles:
     - role: linux_baseline
 
 - name: Windows baseline tasks
-  hosts: windows_originals
+  hosts: windows_originals_runtime
   gather_facts: false
   roles:
     - role: windows_baseline

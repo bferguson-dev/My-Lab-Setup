@@ -4,8 +4,20 @@
 # Allow git control files
 !.gitignore
 !.gitattributes
+!.github/
+!.github/**
 
 # Allow sanitized Ansible repo content only
 !ansible/
 !ansible/**
 !README.md
+!DISCLAIMER.md
+!check.sh
+!ansible.cfg
+
+# Keep local secrets and vault material out of git
+ansible/inventory/group_vars/local-secrets.yml
+ansible/inventory/group_vars/*.vault.yml
+*.pem
+*.key
+.venv/

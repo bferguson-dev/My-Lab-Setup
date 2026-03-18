@@ -9,30 +9,77 @@
 
   tasks:
     - name: Detach installer ISO from originals
-      ansible.builtin.command: "qm set {{ item }} --delete ide2"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if ! qm config {{ item }} | grep -q '^ide2:'; then
+          exit 0
+        fi
+        qm set {{ item }} --delete ide2
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ windows_vms + linux_vms }}"
-      ignore_errors: true
+      register: proxmox_postinstall_detach_ide2
+      changed_when: "'changed' in proxmox_postinstall_detach_ide2.stdout"
 
     - name: Attach shared bootstrap ISO on Linux ide3
-      ansible.builtin.command: >-
-        qm set {{ item }}
-        --ide3 {{ proxmox_storage_iso }}/{{ proxmox_bootstrap_iso_name }},media=cdrom
+      ansible.builtin.shell: |
+        set -euo pipefail
+        desired='{{ proxmox_storage_iso }}/{{ proxmox_bootstrap_iso_name }},media=cdrom'
+        current=$(qm config {{ item }} | awk -F': ' '/^ide3: / { print $2 }')
+        if [ "$current" = "$desired" ]; then
+          exit 0
+        fi
+        qm set {{ item }} --ide3 "$desired"
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ linux_vms }}"
       when: proxmox_bootstrap_iso_name | length > 0
+      register: proxmox_postinstall_linux_bootstrap_iso
+      changed_when: "'changed' in proxmox_postinstall_linux_bootstrap_iso.stdout"
 
     - name: Attach shared bootstrap ISO on Windows ide2
-      ansible.builtin.command: >-
-        qm set {{ item }}
-        --ide2 {{ proxmox_storage_iso }}/{{ proxmox_bootstrap_iso_name }},media=cdrom
+      ansible.builtin.shell: |
+        set -euo pipefail
+        desired='{{ proxmox_storage_iso }}/{{ proxmox_bootstrap_iso_name }},media=cdrom'
+        current=$(qm config {{ item }} | awk -F': ' '/^ide2: / { print $2 }')
+        if [ "$current" = "$desired" ]; then
+          exit 0
+        fi
+        qm set {{ item }} --ide2 "$desired"
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ windows_vms }}"
       when: proxmox_bootstrap_iso_name | length > 0
+      register: proxmox_postinstall_windows_bootstrap_iso
+      changed_when: "'changed' in proxmox_postinstall_windows_bootstrap_iso.stdout"
 
     - name: Set Linux boot order to scsi0
-      ansible.builtin.command: "qm set {{ item }} --boot order=scsi0"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item }} | grep -q '^boot: order=scsi0$'; then
+          exit 0
+        fi
+        qm set {{ item }} --boot order=scsi0
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ linux_vms }}"
-      ignore_errors: true
+      register: proxmox_postinstall_linux_boot
+      changed_when: "'changed' in proxmox_postinstall_linux_boot.stdout"
 
     - name: Set Windows boot order to sata0
-      ansible.builtin.command: "qm set {{ item }} --boot order=sata0"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item }} | grep -q '^boot: order=sata0$'; then
+          exit 0
+        fi
+        qm set {{ item }} --boot order=sata0
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ windows_vms }}"
-      ignore_errors: true
+      register: proxmox_postinstall_windows_boot
+      changed_when: "'changed' in proxmox_postinstall_windows_boot.stdout"

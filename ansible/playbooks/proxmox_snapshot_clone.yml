@@ -4,52 +4,138 @@
   gather_facts: false
 
   tasks:
-    - name: Gracefully shutdown Windows originals
-      ansible.builtin.command: "qm shutdown {{ item }} --timeout {{ proxmox_shutdown_timeout }}"
+    - name: Gracefully shut down Windows originals
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm status {{ item }} | grep -q 'status: stopped'; then
+          exit 0
+        fi
+        qm shutdown {{ item }} --timeout {{ proxmox_shutdown_timeout }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_windows_original_vms }}"
-      ignore_errors: true
+      register: proxmox_snapshot_shutdown_windows
+      changed_when: "'changed' in proxmox_snapshot_shutdown_windows.stdout"
 
-    - name: Gracefully shutdown Linux originals
-      ansible.builtin.command: "qm shutdown {{ item }} --timeout {{ proxmox_shutdown_timeout }}"
+    - name: Gracefully shut down Linux originals
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm status {{ item }} | grep -q 'status: stopped'; then
+          exit 0
+        fi
+        qm shutdown {{ item }} --timeout {{ proxmox_shutdown_timeout }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_linux_original_vms }}"
-      ignore_errors: true
+      register: proxmox_snapshot_shutdown_linux
+      changed_when: "'changed' in proxmox_snapshot_shutdown_linux.stdout"
 
-    - name: Ensure Windows originals are stopped
-      ansible.builtin.command: "qm stop {{ item }}"
+    - name: Wait for originals to stop after graceful shutdown
+      ansible.builtin.shell: |
+        set -euo pipefail
+        for _ in $(seq 1 36); do
+          if qm status {{ item }} | grep -q 'status: stopped'; then
+            exit 0
+          fi
+          sleep 5
+        done
+        exit 1
+      args:
+        executable: /bin/bash
+      loop: "{{ proxmox_windows_original_vms + proxmox_linux_original_vms }}"
+      register: proxmox_snapshot_wait_for_stop
+      changed_when: false
+
+    - name: Force stop Windows originals still running
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm status {{ item }} | grep -q 'status: stopped'; then
+          exit 0
+        fi
+        qm stop {{ item }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_windows_original_vms }}"
-      ignore_errors: true
+      register: proxmox_snapshot_force_stop_windows
+      changed_when: "'changed' in proxmox_snapshot_force_stop_windows.stdout"
 
-    - name: Ensure Linux originals are stopped
-      ansible.builtin.command: "qm stop {{ item }}"
+    - name: Force stop Linux originals still running
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm status {{ item }} | grep -q 'status: stopped'; then
+          exit 0
+        fi
+        qm stop {{ item }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_linux_original_vms }}"
-      ignore_errors: true
+      register: proxmox_snapshot_force_stop_linux
+      changed_when: "'changed' in proxmox_snapshot_force_stop_linux.stdout"
 
     - name: Snapshot Windows originals
-      ansible.builtin.command: >-
-        qm snapshot {{ item }} {{ lab_snapshot_windows }}
-        --description "Windows vulnerable baseline"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm listsnapshot {{ item }} | awk 'NR > 1 { print $1 }' | grep -Fxq '{{ lab_snapshot_windows }}'; then
+          exit 0
+        fi
+        qm snapshot {{ item }} {{ lab_snapshot_windows }} --description 'Windows vulnerable baseline'
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_windows_original_vms }}"
+      register: proxmox_snapshot_windows
+      changed_when: "'changed' in proxmox_snapshot_windows.stdout"
 
     - name: Snapshot Linux originals
-      ansible.builtin.command: >-
-        qm snapshot {{ item }} {{ lab_snapshot_linux }}
-        --description "Linux vulnerable baseline"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm listsnapshot {{ item }} | awk 'NR > 1 { print $1 }' | grep -Fxq '{{ lab_snapshot_linux }}'; then
+          exit 0
+        fi
+        qm snapshot {{ item }} {{ lab_snapshot_linux }} --description 'Linux vulnerable baseline'
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_linux_original_vms }}"
+      register: proxmox_snapshot_linux
+      changed_when: "'changed' in proxmox_snapshot_linux.stdout"
 
     - name: Create Windows full clones
-      ansible.builtin.command: >-
-        qm clone {{ item.source }} {{ item.clone_id }}
-        --name {{ item.name }}
-        --full 1
-        --snapname {{ lab_snapshot_windows }}
-        --storage {{ proxmox_storage_vm }}
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item.clone_id }} >/dev/null 2>&1; then
+          exit 0
+        fi
+        qm clone {{ item.source }} {{ item.clone_id }} \
+          --name {{ item.name }} \
+          --full 1 \
+          --snapname {{ lab_snapshot_windows }} \
+          --storage {{ proxmox_storage_vm }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_windows_clones }}"
+      register: proxmox_snapshot_clone_windows
+      changed_when: "'changed' in proxmox_snapshot_clone_windows.stdout"
 
     - name: Create Linux full clones
-      ansible.builtin.command: >-
-        qm clone {{ item.source }} {{ item.clone_id }}
-        --name {{ item.name }}
-        --full 1
-        --snapname {{ lab_snapshot_linux }}
-        --storage {{ proxmox_storage_vm }}
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item.clone_id }} >/dev/null 2>&1; then
+          exit 0
+        fi
+        qm clone {{ item.source }} {{ item.clone_id }} \
+          --name {{ item.name }} \
+          --full 1 \
+          --snapname {{ lab_snapshot_linux }} \
+          --storage {{ proxmox_storage_vm }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_linux_clones }}"
+      register: proxmox_snapshot_clone_linux
+      changed_when: "'changed' in proxmox_snapshot_clone_linux.stdout"

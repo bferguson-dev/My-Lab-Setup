@@ -5,61 +5,135 @@
 
   tasks:
     - name: Stop originals before optional recreate
-      ansible.builtin.command: "qm stop {{ item.id }}"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if ! qm config {{ item.id }} >/dev/null 2>&1; then
+          exit 0
+        fi
+        if qm status {{ item.id }} | grep -q 'status: stopped'; then
+          exit 0
+        fi
+        qm stop {{ item.id }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
-      ignore_errors: true
       when: proxmox_recreate_original_vms
+      register: proxmox_install_stop_originals
+      changed_when: "'changed' in proxmox_install_stop_originals.stdout"
 
     - name: Destroy originals before optional recreate
-      ansible.builtin.command: "qm destroy {{ item.id }} --destroy-unreferenced-disks 1 --purge 1"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if ! qm config {{ item.id }} >/dev/null 2>&1; then
+          exit 0
+        fi
+        qm destroy {{ item.id }} --destroy-unreferenced-disks 1 --purge 1
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
-      ignore_errors: true
       when: proxmox_recreate_original_vms
+      register: proxmox_install_destroy_originals
+      changed_when: "'changed' in proxmox_install_destroy_originals.stdout"
 
     - name: Ensure originals exist with base config
-      ansible.builtin.command: >-
-        qm create {{ item.id }}
-        --name {{ item.name }}
-        --machine q35
-        --bios ovmf
-        --cpu host
-        --cores {{ item.cores }}
-        --memory {{ item.memory }}
-        --agent enabled=1
-        --scsihw virtio-scsi-single
-        --efidisk0 {{ proxmox_storage_vm }}:1,pre-enrolled-keys=1
-        --net0 virtio,bridge={{ proxmox_bridge }}
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item.id }} >/dev/null 2>&1; then
+          exit 0
+        fi
+        qm create {{ item.id }} \
+          --name {{ item.name }} \
+          --machine q35 \
+          --bios ovmf \
+          --cpu host \
+          --cores {{ item.cores }} \
+          --memory {{ item.memory }} \
+          --agent enabled=1 \
+          --scsihw virtio-scsi-single \
+          --efidisk0 {{ proxmox_storage_vm }}:1,pre-enrolled-keys=1 \
+          --net0 virtio,bridge={{ proxmox_bridge }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
-      ignore_errors: true
+      register: proxmox_install_create_originals
+      changed_when: "'changed' in proxmox_install_create_originals.stdout"
 
     - name: Ensure primary disk exists
-      ansible.builtin.command: >-
-        qm set {{ item.id }}
-        --{{ item.disk_bus }} {{ proxmox_storage_vm }}:{{ item.disk_size_gb }}
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item.id }} | grep -q '^{{ item.disk_bus }}:'; then
+          exit 0
+        fi
+        qm set {{ item.id }} --{{ item.disk_bus }} {{ proxmox_storage_vm }}:{{ item.disk_size_gb }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
-      ignore_errors: true
+      register: proxmox_install_primary_disk
+      changed_when: "'changed' in proxmox_install_primary_disk.stdout"
 
     - name: Attach OS installer ISO on ide2
-      ansible.builtin.command: >-
-        qm set {{ item.id }}
-        --ide2 {{ proxmox_storage_iso }}/{{ item.install_iso }},media=cdrom
+      ansible.builtin.shell: |
+        set -euo pipefail
+        desired='{{ proxmox_storage_iso }}/{{ item.install_iso }},media=cdrom'
+        current=$(qm config {{ item.id }} | awk -F': ' '/^ide2: / { print $2 }')
+        if [ "$current" = "$desired" ]; then
+          exit 0
+        fi
+        qm set {{ item.id }} --ide2 "$desired"
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
+      register: proxmox_install_os_iso
+      changed_when: "'changed' in proxmox_install_os_iso.stdout"
 
-    - name: Attach Windows driver ISO on ide3 (optional)
-      ansible.builtin.command: >-
-        qm set {{ item.id }}
-        --ide3 {{ proxmox_storage_iso }}/{{ proxmox_windows_driver_iso_name }},media=cdrom
+    - name: Attach Windows driver ISO on ide3
+      ansible.builtin.shell: |
+        set -euo pipefail
+        desired='{{ proxmox_storage_iso }}/{{ proxmox_windows_driver_iso_name }},media=cdrom'
+        current=$(qm config {{ item.id }} | awk -F': ' '/^ide3: / { print $2 }')
+        if [ "$current" = "$desired" ]; then
+          exit 0
+        fi
+        qm set {{ item.id }} --ide3 "$desired"
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
       when:
         - proxmox_attach_windows_driver_iso
         - item.os_family == "windows"
+      register: proxmox_install_windows_driver_iso
+      changed_when: "'changed' in proxmox_install_windows_driver_iso.stdout"
 
     - name: Set boot order to installer first
-      ansible.builtin.command: "qm set {{ item.id }} --boot order=ide2"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm config {{ item.id }} | grep -q '^boot: order=ide2$'; then
+          exit 0
+        fi
+        qm set {{ item.id }} --boot order=ide2
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
+      register: proxmox_install_boot_order
+      changed_when: "'changed' in proxmox_install_boot_order.stdout"
 
     - name: Start originals for OS installation
-      ansible.builtin.command: "qm start {{ item.id }}"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if qm status {{ item.id }} | grep -q 'status: running'; then
+          exit 0
+        fi
+        qm start {{ item.id }}
+        echo changed
+      args:
+        executable: /bin/bash
       loop: "{{ proxmox_original_vm_definitions }}"
-      ignore_errors: true
-
+      register: proxmox_install_start_originals
+      changed_when: "'changed' in proxmox_install_start_originals.stdout"

@@ -9,10 +9,14 @@ Files expected at ISO root:
 Order enforced by scripts:
 1) Disable auto updates
 2) Install/update tools (qemu-guest-agent)
-3) Enable remote access (WinRM/SSH)
+3) Enable remote access (WinRM over NTLM or SSH)
 4) Open firewall for remote management
 5) Write verification logs
 
 Logs:
 - Windows: C:\LabSetup
 - Linux: /var/log/labsetup
+
+Security note:
+- Windows bootstrap disables Basic auth and disallows unencrypted WinRM.
+- This remains lab-only automation because WinRM is still exposed over HTTP.

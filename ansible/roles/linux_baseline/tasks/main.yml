@@ -53,13 +53,13 @@
 - name: Install and update qemu-guest-agent (dnf family)
   ansible.builtin.package:
     name: qemu-guest-agent
-    state: latest
+    state: present
   when: ansible_pkg_mgr in ['dnf', 'yum']
 
 - name: Install and update qemu-guest-agent (apt family)
   ansible.builtin.apt:
     name: qemu-guest-agent
-    state: latest
+    state: present
     update_cache: true
   when: ansible_pkg_mgr == 'apt'
 
@@ -98,8 +98,8 @@
 
 - name: Allow SSH in firewalld when active (RedHat family)
   ansible.builtin.command: firewall-cmd --permanent --add-service=ssh
-  register: firewalld_allow_ssh
-  changed_when: "'success' in firewalld_allow_ssh.stdout or firewalld_allow_ssh.rc == 0"
+  register: linux_baseline_firewalld_allow_ssh
+  changed_when: "'success' in linux_baseline_firewalld_allow_ssh.stdout or linux_baseline_firewalld_allow_ssh.rc == 0"
   failed_when: false
   when: ansible_os_family == 'RedHat'
 
@@ -111,7 +111,7 @@
 
 - name: Allow OpenSSH in UFW when active (Debian family)
   ansible.builtin.shell: |
-    set -e
+    set -euo pipefail
     if command -v ufw >/dev/null 2>&1; then
       ufw status | grep -q "Status: active" && ufw allow OpenSSH || true
     fi
@@ -119,7 +119,6 @@
     executable: /bin/bash
   changed_when: false
   when: ansible_os_family == 'Debian'
-
 - name: Log Linux baseline verification state
   ansible.builtin.shell: |
     set -e
@@ -133,4 +132,3 @@
   args:
     executable: /bin/bash
   changed_when: false
-

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Install git-secrets
+        run: |
+          git clone --depth=1 https://github.com/awslabs/git-secrets.git \
+            /tmp/git-secrets
+          sudo make -C /tmp/git-secrets install
+          git secrets --install
+
+      - name: Run quality gate
+        run: ./check.sh
