@@ -57,7 +57,9 @@ EOF
 
   echo "Adjusting firewall for SSH (if UFW is active)"
   if command -v ufw >/dev/null 2>&1; then
-    ufw status | grep -q "Status: active" && ufw allow OpenSSH || true
+    if ufw status | grep -q "Status: active"; then
+      ufw allow OpenSSH || true
+    fi
   fi
 else
   echo "Unsupported distro (no dnf or apt-get found)" >&2
