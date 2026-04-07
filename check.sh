@@ -9,7 +9,7 @@ VENV_DIR="${VENV_DIR:-.venv}"
 BOOTSTRAP_VENV="${BOOTSTRAP_VENV:-1}"
 RUN_PYTHON="$PYTHON_BIN"
 
-README_DISCLAIMER='*[!] This project has not been tested in a production environment. You are responsible for validating, understanding, and testing it in your own environment before any real-world use. [!]*'
+README_DISCLAIMER='*[!] This project is provided as-is, without warranties or guarantees of any kind, and has not been validated in a production environment unless explicitly stated otherwise. You are solely responsible for evaluating, testing, securing, and operating it safely in your environment and for verifying compliance with any legal, regulatory, or contractual requirements. By using this project, you accept all risk, and the authors and contributors assume no liability for any loss, damage, outage, misuse, or other consequences arising from its use. [!]*'
 
 PLAYBOOKS=(
   ansible/playbooks/proxmox_install_phase.yml

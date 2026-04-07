@@ -1,4 +1,4 @@
-*[!] This project has not been tested in a production environment. You are responsible for validating, understanding, and testing it in your own environment before any real-world use. [!]*
+*[!] This project is provided as-is, without warranties or guarantees of any kind, and has not been validated in a production environment unless explicitly stated otherwise. You are solely responsible for evaluating, testing, securing, and operating it safely in your environment and for verifying compliance with any legal, regulatory, or contractual requirements. By using this project, you accept all risk, and the authors and contributors assume no liability for any loss, damage, outage, misuse, or other consequences arising from its use. [!]*
 
 # Proxmox Lab Ansible (Sanitized)
 
@@ -177,11 +177,10 @@ Use `./check.sh` as the local gate before commit or push. It currently checks:
 - Ansible playbook syntax when `ansible-playbook` is available.
 - `ansible-lint` when available or after the script bootstraps its local venv.
 - Shell syntax for repo shell scripts and optional `shellcheck`.
-- `git diff --check`, staged-diff review helpers, and `git secrets` scans when
+- `git diff --check`, staged-diff review helpers, and local secret scans when
   run inside a Git worktree.
 
-The repository also includes Git hooks that call `git secrets` for commit-time
-secret scanning. GitHub Actions runs `./check.sh` on pushes and pull requests.
+GitHub Actions runs `./check.sh` on pushes and pull requests.
 
 ## Troubleshooting
 
